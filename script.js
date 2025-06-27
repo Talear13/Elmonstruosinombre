@@ -7,27 +7,31 @@ const logo           = document.getElementById('logo');
 const cursorSymbol = '<?>';
 const triggerCode  = 'laylalynngardner'; // normalized
 
-// Riddles & flow
 const welcomeMessages = [
   "WELCOME. I WAS EXPECTING YOU.\n>> HAVEN'T A CLUE? \n>> LET'S PLAY A GAME JUST ME AND YOU... \n>> [Y/N]"
 ];
+
 const riddles = [
   { text: "I BIND PEOPLE TOGETHER WITHOUT A CHAIN,\nI’M FELT BUT NEVER SEEN", answer: "love" },
   { text: "I HAUNT THE SILENCE AFTER WORDS THAT CUT TOO DEEP,\nA WHISPER BORN WHEN PRIDE ADMITS DEFEAT.", answer: "im sorry" },
   { text: "WHEN LIGHT IS GONE AND FEARS BEGIN,\nWHAT MAKES US DREAM AND FIGHT TO WIN?", answer: "hope" },
   { text: "BREAKS AND TRUTH WON’T SPEAK,\nWHO CROWNS THE LOUD AND STARVES THE WEAK?", answer: "unfairness" },
   { text: "WHEN SMILES DIE AND ECHOES STAY,\nWHO PAINTS THE SOUL IN SHADES OF GRAY?\nHINT:) - ANSWERS MAY OR MAY NOT REPEAT.. BUT SOME CAN HAVE EXCEPTIONS.", answer: "sorrow" },
-  { text: "WHO CLAPS THE LOUDEST WHEN MASKS ARE WORN,\nBUT WILTS INSIDE, UNLOVED, FORLORN?", answer: ["envy","sorrow"] }
+  { text: "WHO CLAPS THE LOUDEST WHEN MASKS ARE WORN,\nBUT WILTS INSIDE, UNLOVED, FORLORN?", answer: ["envy", "sorrow"] }
 ];
 
 let currentRiddle = 0;
+let chatInputActive = false;
 
-// Firebase DB reference
 const dbRef = firebase.database().ref('chatLogs');
 
-// Utility
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
+}
+
+function removeCursor() {
+  const cursor = document.querySelector('.cursor');
+  if (cursor) cursor.remove();
 }
 
 function createCursor() {
@@ -37,10 +41,6 @@ function createCursor() {
   c.classList.add('cursor');
   terminalOutput.appendChild(c);
 }
-function removeCursor() {
-  const ex = terminalOutput.querySelector('.cursor');
-  if (ex) ex.remove();
-}
 
 async function typeText(txt, speed = 90) {
   removeCursor();
@@ -49,13 +49,13 @@ async function typeText(txt, speed = 90) {
     await sleep(speed);
   }
   createCursor();
+  terminalOutput.scrollTop = terminalOutput.scrollHeight;
 }
 
 function clearTerminal() {
-  terminalOutput.textContent = '';
+  terminalOutput.innerHTML = '';
 }
 
-// — Normal flow —
 async function startTerminal() {
   homeScreen.classList.add('hidden');
   terminalScreen.classList.remove('hidden');
@@ -71,21 +71,21 @@ function waitYesNo(cb) {
       window.removeEventListener('keydown', h);
       removeCursor();
       terminalOutput.textContent += `\n>>${k}\n`;
-      if (k === 'Y') cb();
-      else typeText('>> GOODBYE.');
+      if (k === 'Y') cb(); else typeText('>> GOODBYE.');
     }
   });
 }
 
 async function askRiddle() {
   const r = riddles[currentRiddle];
-  await typeText(`\n${r.text}\n>> `); // NO extra createCursor here to prevent double
+  await typeText(`\n${r.text}\n>> `);
   waitAnswer();
 }
 
 function waitAnswer() {
   let ans = '';
   window.addEventListener('keydown', function t(e) {
+    if (chatInputActive) return; // prevent interference with chat phase
     if (e.key === 'Enter') {
       window.removeEventListener('keydown', t);
       removeCursor();
@@ -124,7 +124,6 @@ function handleInitialResponse() {
   askRiddle();
 }
 
-// — Chat flow —
 async function activateChat() {
   clearTerminal();
   await typeText('ACCESS GRANTED', 50);
@@ -137,38 +136,45 @@ async function activateChat() {
   }
 
   clearTerminal();
-  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>> ", 40);
+  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>> ");
 
-  // Live log feed from Firebase
+  // Firebase listener
   dbRef.off();
   dbRef.on('child_added', snap => {
-    terminalOutput.textContent += `\n>> ${snap.val()}`;
+    const msg = document.createElement('div');
+    msg.textContent = `>> ${snap.val()}`;
+    msg.style.marginTop = '8px'; // adjust spacing
+    terminalOutput.appendChild(msg);
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 
-  // Live input display + send
+  // Setup input
+  chatInputActive = true;
   let buf = '';
-  const liveInput = document.createElement('span');
-  liveInput.id = 'liveInput';
-  terminalOutput.appendChild(liveInput);
+
+  const live = document.createElement('span');
+  live.id = 'liveInput';
+  terminalOutput.appendChild(live);
   createCursor();
 
-  window.addEventListener('keydown', function c(e) {
+  window.addEventListener('keydown', function inputHandler(e) {
+    if (!chatInputActive) return;
+
     if (e.key === 'Enter') {
       if (buf.trim()) dbRef.push(buf.trim());
       buf = '';
-      liveInput.textContent = '';
+      live.textContent = '';
     } else if (e.key === 'Backspace') {
       e.preventDefault();
       buf = buf.slice(0, -1);
-      liveInput.textContent = buf;
+      live.textContent = buf;
     } else if (e.key.length === 1) {
       buf += e.key;
-      liveInput.textContent = buf;
+      live.textContent = buf;
     }
+
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 }
 
-// — Init —
 logo.addEventListener('click', startTerminal);
