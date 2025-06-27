@@ -5,12 +5,15 @@ const terminalOutput = document.getElementById('terminal-output');
 const logo           = document.getElementById('logo');
 
 const cursorSymbol = '<?>';
-const triggerCode  = 'laylalynngardner'; // normalized
+const triggerCode  = 'laylalynngardner';
 
+// Firebase DB
+const dbRef = firebase.database().ref('chatLogs');
+
+// Riddles & flow
 const welcomeMessages = [
   "WELCOME. I WAS EXPECTING YOU.\n>> HAVEN'T A CLUE? \n>> LET'S PLAY A GAME JUST ME AND YOU... \n>> [Y/N]"
 ];
-
 const riddles = [
   { text: "I BIND PEOPLE TOGETHER WITHOUT A CHAIN,\nI’M FELT BUT NEVER SEEN", answer: "love" },
   { text: "I HAUNT THE SILENCE AFTER WORDS THAT CUT TOO DEEP,\nA WHISPER BORN WHEN PRIDE ADMITS DEFEAT.", answer: "im sorry" },
@@ -23,39 +26,35 @@ const riddles = [
 let currentRiddle = 0;
 let chatInputActive = false;
 
-const dbRef = firebase.database().ref('chatLogs');
-
+// Utilities
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
-
-function removeCursor() {
-  const cursor = document.querySelector('.cursor');
-  if (cursor) cursor.remove();
-}
-
 function createCursor() {
   removeCursor();
   const c = document.createElement('span');
   c.textContent = cursorSymbol;
   c.classList.add('cursor');
-  terminalOutput.appendChild(c);
+  return c;
 }
-
+function removeCursor() {
+  const ex = terminalOutput.querySelector('.cursor');
+  if (ex) ex.remove();
+}
 async function typeText(txt, speed = 90) {
   removeCursor();
   for (let ch of txt) {
     terminalOutput.textContent += ch;
     await sleep(speed);
   }
-  createCursor();
+  terminalOutput.appendChild(createCursor());
   terminalOutput.scrollTop = terminalOutput.scrollHeight;
 }
-
 function clearTerminal() {
   terminalOutput.innerHTML = '';
 }
 
+// Terminal start
 async function startTerminal() {
   homeScreen.classList.add('hidden');
   terminalScreen.classList.remove('hidden');
@@ -63,7 +62,6 @@ async function startTerminal() {
   await typeText(welcomeMessages[0]);
   waitYesNo(handleInitialResponse);
 }
-
 function waitYesNo(cb) {
   window.addEventListener('keydown', function h(e) {
     const k = e.key.toUpperCase();
@@ -71,40 +69,36 @@ function waitYesNo(cb) {
       window.removeEventListener('keydown', h);
       removeCursor();
       terminalOutput.textContent += `\n>>${k}\n`;
-      if (k === 'Y') cb(); else typeText('>> GOODBYE.');
+      if (k === 'Y') cb();
+      else typeText('>> GOODBYE.');
     }
   });
 }
-
 async function askRiddle() {
   const r = riddles[currentRiddle];
   await typeText(`\n${r.text}\n>> `);
   waitAnswer();
 }
-
 function waitAnswer() {
   let ans = '';
   window.addEventListener('keydown', function t(e) {
-    if (chatInputActive) return; // prevent interference with chat phase
+    if (chatInputActive) return; // skip if chat mode
     if (e.key === 'Enter') {
       window.removeEventListener('keydown', t);
       removeCursor();
-
       const norm = ans.replace(/\s+/g, '').toLowerCase();
       if (norm.includes(triggerCode)) {
         activateChat();
         return;
       }
-
-      const exp = riddles[currentRiddle].answer;
-      const ok = Array.isArray(exp)
-        ? exp.some(a => ans.toLowerCase().includes(a))
-        : ans.toLowerCase().includes(exp.toLowerCase());
-
-      if (ok) {
+      const expected = riddles[currentRiddle].answer;
+      const isCorrect = Array.isArray(expected)
+        ? expected.some(a => ans.toLowerCase().includes(a))
+        : ans.toLowerCase().includes(expected.toLowerCase());
+      if (isCorrect) {
         currentRiddle++;
         if (currentRiddle < riddles.length) askRiddle();
-        else typeText('\n>> GOOD JOB. YOU CRACKED THEM ALL.');
+        else typeText('\n>> good job my love, i knew you could do these simple riddles i made for you.');
       } else {
         typeText('\n>> INCORRECT.\n>> ');
         waitAnswer();
@@ -119,49 +113,59 @@ function waitAnswer() {
     }
   });
 }
-
 function handleInitialResponse() {
   askRiddle();
 }
 
+// ACTIVATE CHAT MODE
 async function activateChat() {
   clearTerminal();
   await typeText('ACCESS GRANTED', 50);
   await sleep(2000);
-
   const dots = ['.','..','...','.','..','...'];
   for (let d of dots) {
     terminalOutput.textContent = 'LOADING CHAT LOGS' + d;
     await sleep(400);
   }
-
   clearTerminal();
-  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>> ");
+  await typeText(">> Welcome my love, it seems you finally figured out one of the secrets of this forsaken piece of the internet.\n>> Type and press Enter.\n>> ");
 
-  // Firebase listener
-  dbRef.off();
-  dbRef.on('child_added', snap => {
-    const msg = document.createElement('div');
-    msg.textContent = `>> ${snap.val()}`;
-    msg.style.marginTop = '8px'; // adjust spacing
-    terminalOutput.appendChild(msg);
-    terminalOutput.scrollTop = terminalOutput.scrollHeight;
-  });
+  const line = document.createElement('div');
+  line.classList.add('chat-line');
 
-  // Setup input
-  chatInputActive = true;
-  let buf = '';
+  const prompt = document.createElement('span');
+  prompt.textContent = '>> ';
 
   const live = document.createElement('span');
   live.id = 'liveInput';
-  terminalOutput.appendChild(live);
-  createCursor();
+
+  const cursor = createCursor();
+
+  line.appendChild(prompt);
+  line.appendChild(live);
+  line.appendChild(cursor);
+  terminalOutput.appendChild(line);
+
+  terminalOutput.scrollTop = terminalOutput.scrollHeight;
+  chatInputActive = true;
+
+  let buf = '';
+
+  dbRef.off();
+  dbRef.on('child_added', snap => {
+    const msgLine = document.createElement('div');
+    msgLine.textContent = `>> ${snap.val()}`;
+    msgLine.style.marginTop = '10px';
+    terminalOutput.insertBefore(msgLine, line);
+    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+  });
 
   window.addEventListener('keydown', function inputHandler(e) {
     if (!chatInputActive) return;
-
     if (e.key === 'Enter') {
-      if (buf.trim()) dbRef.push(buf.trim());
+      if (buf.trim()) {
+        dbRef.push(buf.trim());
+      }
       buf = '';
       live.textContent = '';
     } else if (e.key === 'Backspace') {
@@ -172,9 +176,9 @@ async function activateChat() {
       buf += e.key;
       live.textContent = buf;
     }
-
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 }
 
+// Initialize
 logo.addEventListener('click', startTerminal);
