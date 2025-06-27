@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>monstruosinombre.com</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <div id="home-screen">
+    <div id="logo">&lt;?&gt;</div>
+  </div>
+
+  <div id="terminal-screen" class="hidden">
+    <div id="terminal-output"></div>
+  </div>
+
+  <!-- Firebase compat CDN -->
+  <script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.9.1/firebase-database-compat.js"></script>
+  <script>
+    // Your Firebase config (from console)
+    const firebaseConfig = {
+      apiKey: "AIzaSyD_Lx5484NrSyUlRDh9kBPOwdJtpYeLj50",
+      authDomain: "laylalynngardner.firebaseapp.com",
+      databaseURL: "https://laylalynngardner-default-rtdb.firebaseio.com",
+      projectId: "laylalynngardner",
+      storageBucket: "laylalynngardner.firebasestorage.app",
+      messagingSenderId: "629537454804",
+      appId: "1:629537454804:web:1328e9ce9e9fdbced2d941",
+      measurementId: "G-2ZRD758PQJ"
+    };
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+  </script>
+
+  <!-- Your main script, normal non-module -->
+  <script src="script.js"></script>
+</body>
+</html>
