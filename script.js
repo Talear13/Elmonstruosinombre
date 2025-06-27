@@ -101,7 +101,7 @@ function waitAnswer() {
       if (ok) {
         currentRiddle++;
         if (currentRiddle < riddles.length) askRiddle();
-        else typeText('\n>> GOOD JOB. YOU CRACKED THEM ALL.');
+        else typeText('\n>> Good Job my dear layla, i knew you could do it  C:');
       } else {
         terminalOutput.innerHTML += '\n>> INCORRECT.\n>> ';
         waitAnswer();
@@ -135,7 +135,7 @@ async function activateChat() {
     await sleep(400);
   }
   clearTerminal();
-  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>> ", 40);
+  await typeText(">> Welcome Layla Gardner.\n>> Type and press Enter.\n>> ", 40);
 
   // Live input
   const inputDiv = document.createElement('div');
