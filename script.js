@@ -7,7 +7,6 @@ const logo           = document.getElementById('logo');
 const cursorSymbol = '<?>';
 const triggerCode  = 'laylalynngardner'; // normalized
 
-// Riddles & flow
 const welcomeMessages = [
   "WELCOME. I WAS EXPECTING YOU.\n>> HAVEN'T A CLUE? \n>> LET'S PLAY A GAME JUST ME AND YOU... \n>> [Y/N]"
 ];
@@ -21,41 +20,37 @@ const riddles = [
 ];
 
 let currentRiddle = 0;
-
-// Firebase DB reference
 const dbRef = firebase.database().ref('chatLogs');
 
 // Utility
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
-
-function createCursor() {
-  removeCursor();
-  const c = document.createElement('span');
-  c.textContent = cursorSymbol;
-  c.classList.add('cursor');
-  terminalOutput.appendChild(c);
-}
 function removeCursor() {
   const ex = terminalOutput.querySelector('.cursor');
   if (ex) ex.remove();
 }
-
+function createCursor(blinking = true) {
+  const cursor = document.createElement('span');
+  cursor.textContent = cursorSymbol;
+  cursor.className = 'cursor';
+  if (!blinking) cursor.classList.add('no-blink');
+  return cursor;
+}
 async function typeText(txt, speed = 90) {
   removeCursor();
   for (let ch of txt) {
     terminalOutput.textContent += ch;
     await sleep(speed);
   }
-  createCursor();
+  const cursor = createCursor();
+  terminalOutput.appendChild(cursor);
 }
-
 function clearTerminal() {
-  terminalOutput.textContent = '';
+  terminalOutput.innerHTML = '';
 }
 
-// — Normal flow —
+// Flow
 async function startTerminal() {
   homeScreen.classList.add('hidden');
   terminalScreen.classList.remove('hidden');
@@ -67,11 +62,12 @@ async function startTerminal() {
 function waitYesNo(cb) {
   window.addEventListener('keydown', function h(e) {
     const k = e.key.toUpperCase();
-    if (k==='Y'||k==='N') {
+    if (k === 'Y' || k === 'N') {
       window.removeEventListener('keydown', h);
       removeCursor();
-      terminalOutput.textContent += `\n>>${k}\n`;
-      if (k==='Y') cb(); else typeText('>> GOODBYE.');
+      terminalOutput.innerHTML += `<br>>${k}<br>`;
+      if (k === 'Y') cb();
+      else typeText('>> GOODBYE.');
     }
   });
 }
@@ -84,36 +80,43 @@ async function askRiddle() {
 
 function waitAnswer() {
   let ans = '';
+  const inputSpan = document.createElement('span');
+  const cursor = createCursor();
+  terminalOutput.appendChild(inputSpan);
+  terminalOutput.appendChild(cursor);
+  terminalOutput.scrollTop = terminalOutput.scrollHeight;
+
   window.addEventListener('keydown', function t(e) {
-    if (e.key==='Enter') {
+    if (e.key === 'Enter') {
       window.removeEventListener('keydown', t);
       removeCursor();
-      const norm = ans.replace(/\s+/g,'').toLowerCase();
+      const norm = ans.replace(/\s+/g, '').toLowerCase();
       if (norm.includes(triggerCode)) {
         activateChat(); return;
       }
       const exp = riddles[currentRiddle].answer;
       const ok = Array.isArray(exp)
-        ? exp.some(a=>ans.toLowerCase().includes(a))
+        ? exp.some(a => ans.toLowerCase().includes(a))
         : ans.toLowerCase().includes(exp.toLowerCase());
       if (ok) {
         currentRiddle++;
-        if (currentRiddle<riddles.length) askRiddle();
+        if (currentRiddle < riddles.length) askRiddle();
         else typeText('\n>> GOOD JOB. YOU CRACKED THEM ALL.');
       } else {
-        typeText('\n>> INCORRECT.\n>> ');
+        terminalOutput.innerHTML += '\n>> INCORRECT.\n>> ';
         waitAnswer();
       }
     }
-    else if (e.key==='Backspace') {
+    else if (e.key === 'Backspace') {
       e.preventDefault();
-      ans = ans.slice(0,-1);
-      terminalOutput.textContent = terminalOutput.textContent.slice(0,-1);
+      ans = ans.slice(0, -1);
+      inputSpan.textContent = ans.toUpperCase();
     }
-    else if (e.key.length===1) {
-      ans+=e.key;
-      terminalOutput.textContent+=e.key.toUpperCase();
+    else if (e.key.length === 1) {
+      ans += e.key;
+      inputSpan.textContent = ans.toUpperCase();
     }
+    terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 }
 
@@ -121,53 +124,57 @@ function handleInitialResponse() {
   askRiddle();
 }
 
-// — Chat flow —
+// — Chat Flow (Fully Live Input Fixed) —
 async function activateChat() {
   clearTerminal();
-  await typeText('ACCESS GRANTED',50);
+  await typeText('ACCESS GRANTED', 50);
   await sleep(2000);
-  const dots=['.','..','...','.','..','...'];
+  const dots = ['.', '..', '...', '.', '..', '...'];
   for (let d of dots) {
-    terminalOutput.textContent = 'LOADING CHAT LOGS'+d;
+    terminalOutput.textContent = 'LOADING CHAT LOGS' + d;
     await sleep(400);
   }
   clearTerminal();
-  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>> ",40);
+  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>> ", 40);
 
-  // listen
+  // Live input
+  const inputDiv = document.createElement('div');
+  inputDiv.className = 'chat-line';
+  let inputBuffer = '';
+  const cursor = createCursor();
+  const textSpan = document.createElement('span');
+  inputDiv.appendChild(document.createTextNode(">> "));
+  inputDiv.appendChild(textSpan);
+  inputDiv.appendChild(cursor);
+  terminalOutput.appendChild(inputDiv);
+  terminalOutput.scrollTop = terminalOutput.scrollHeight;
+
   dbRef.off();
-  dbRef.on('child_added', snap=>{
-    terminalOutput.textContent+=`\n>> ${snap.val()}`;
+  dbRef.on('child_added', snap => {
+    const msg = document.createElement('div');
+    msg.textContent = `>> ${snap.val()}`;
+    terminalOutput.insertBefore(msg, inputDiv);
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 
-  // input
-  let buf = '';
-  let inputLine = document.createElement('div');
-  inputLine.className = 'chat-input';
-  terminalOutput.appendChild(inputLine);
-  createCursor();
-
-  window.addEventListener('keydown', function c(e) {
+  window.addEventListener('keydown', function chatInput(e) {
     if (e.key === 'Enter') {
-      if (buf.trim()) {
-        dbRef.push(buf.trim());
-        buf = '';
-        inputLine = document.createElement('div');
-        inputLine.className = 'chat-input';
-        terminalOutput.appendChild(inputLine);
+      if (inputBuffer.trim()) {
+        dbRef.push(inputBuffer.trim());
+        inputBuffer = '';
+        textSpan.textContent = '';
       }
     } else if (e.key === 'Backspace') {
       e.preventDefault();
-      buf = buf.slice(0, -1);
-      inputLine.textContent = '>> ' + buf;
+      inputBuffer = inputBuffer.slice(0, -1);
+      textSpan.textContent = inputBuffer;
     } else if (e.key.length === 1) {
-      buf += e.key;
-      inputLine.textContent = '>> ' + buf;
+      inputBuffer += e.key;
+      textSpan.textContent = inputBuffer;
     }
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 }
 
-// — Init —
+// INIT
 logo.addEventListener('click', startTerminal);
