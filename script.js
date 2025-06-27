@@ -132,7 +132,7 @@ async function activateChat() {
     await sleep(400);
   }
   clearTerminal();
-  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>>",40);
+  await typeText(">> Welcome to the chat log.\n>> Type and press Enter.\n>> ",40);
 
   // listen
   dbRef.off();
@@ -143,15 +143,29 @@ async function activateChat() {
 
   // input
   let buf = '';
+  let inputLine = document.createElement('div');
+  inputLine.className = 'chat-input';
+  terminalOutput.appendChild(inputLine);
+  createCursor();
+
   window.addEventListener('keydown', function c(e) {
-    if (e.key==='Enter') {
-      if (buf.trim()) dbRef.push(buf.trim());
-      buf='';
+    if (e.key === 'Enter') {
+      if (buf.trim()) {
+        dbRef.push(buf.trim());
+        buf = '';
+        inputLine = document.createElement('div');
+        inputLine.className = 'chat-input';
+        terminalOutput.appendChild(inputLine);
+      }
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      buf = buf.slice(0, -1);
+      inputLine.textContent = '>> ' + buf;
+    } else if (e.key.length === 1) {
+      buf += e.key;
+      inputLine.textContent = '>> ' + buf;
     }
-    else if (e.key==='Backspace') {
-      e.preventDefault(); buf=buf.slice(0,-1);
-    }
-    else if (e.key.length===1) buf+=e.key;
+    terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 }
 
