@@ -2,8 +2,10 @@
 
 /* Reset & lock viewport */
 html, body {
-  margin: 0; padding: 0;
-  width: 100vw; height: 100vh;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
   background: black;
   color: #00ff00;
@@ -12,13 +14,18 @@ html, body {
 
 /* Home screen centered */
 #home-screen {
-  position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: black; cursor: pointer;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: black;
+  cursor: pointer;
   z-index: 10;
 }
+
 #logo {
-  font-family: monospace;
+  font-family: 'Source Code Pro', monospace;
   font-size: 25px;
   animation: fadeBlink 2s infinite;
   user-select: none;
@@ -37,14 +44,18 @@ html, body {
 
 /* Terminal pinned top-left */
 #terminal-screen {
-  position: fixed; top: 0; left: 0;
-  width: 100vw; height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   padding: 10px;
   background: black;
   box-sizing: border-box;
   overflow: hidden;
   z-index: 5;
 }
+
 #terminal-output {
   font-family: 'Source Code Pro', monospace;
   font-size: 14px;
@@ -59,6 +70,7 @@ html, body {
   display: inline-block;
   animation: blink 1s steps(1) infinite;
 }
+
 @keyframes blink {
   0%, 49.9% { opacity: 1; }
   50%, 100% { opacity: 0; }
