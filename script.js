@@ -3,6 +3,7 @@ const homeScreen     = document.getElementById('home-screen');
 const terminalScreen = document.getElementById('terminal-screen');
 const terminalOutput = document.getElementById('terminal-output');
 const logo           = document.getElementById('logo');
+const mobileInput    = document.getElementById('mobile-input');
 
 const cursorSymbol = '<?>';
 const triggerCode  = 'laylalynngardner';
@@ -26,7 +27,7 @@ const riddles = [
 let currentRiddle = 0;
 let chatInputActive = false;
 
-// Utilities
+// Utils
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
@@ -53,6 +54,9 @@ async function typeText(txt, speed = 90) {
 function clearTerminal() {
   terminalOutput.innerHTML = '';
 }
+function focusInput() {
+  mobileInput.focus();
+}
 
 // Terminal start
 async function startTerminal() {
@@ -63,56 +67,74 @@ async function startTerminal() {
   waitYesNo(handleInitialResponse);
 }
 function waitYesNo(cb) {
-  window.addEventListener('keydown', function h(e) {
-    const k = e.key.toUpperCase();
-    if (k === 'Y' || k === 'N') {
-      window.removeEventListener('keydown', h);
+  focusInput();
+  let listener = function(e) {
+    const val = e.target.value.trim().toUpperCase();
+    if (val === 'Y' || val === 'N') {
+      mobileInput.removeEventListener('input', listener);
+      mobileInput.value = '';
       removeCursor();
-      terminalOutput.textContent += \n>>${k}\n;
-      if (k === 'Y') cb();
+      terminalOutput.textContent += `\n>>${val}\n`;
+      if (val === 'Y') cb();
       else typeText('>> GOODBYE.');
     }
-  });
+  };
+  mobileInput.addEventListener('input', listener);
 }
 async function askRiddle() {
   const r = riddles[currentRiddle];
-  await typeText(\n${r.text}\n>> );
+  await typeText(`\n${r.text}\n>> `);
   waitAnswer();
 }
 function waitAnswer() {
-  let ans = '';
-  window.addEventListener('keydown', function t(e) {
-    if (chatInputActive) return; // skip if chat mode
-    if (e.key === 'Enter') {
-      window.removeEventListener('keydown', t);
+  focusInput();
+  let buffer = '';
+  mobileInput.value = '';
+  const handler = function(e) {
+    const val = e.target.value;
+    if (val.endsWith('\n') || val.endsWith('\r')) {
+      mobileInput.removeEventListener('input', handler);
+      const clean = val.trim().toLowerCase();
       removeCursor();
-      const norm = ans.replace(/\s+/g, '').toLowerCase();
-      if (norm.includes(triggerCode)) {
+
+      if (clean.includes(triggerCode)) {
         activateChat();
         return;
       }
+
       const expected = riddles[currentRiddle].answer;
       const isCorrect = Array.isArray(expected)
-        ? expected.some(a => ans.toLowerCase().includes(a))
-        : ans.toLowerCase().includes(expected.toLowerCase());
+        ? expected.some(a => clean.includes(a))
+        : clean.includes(expected.toLowerCase());
+
       if (isCorrect) {
         currentRiddle++;
-        if (currentRiddle < riddles.length) askRiddle();
-        else typeText('\n>> good job my love, i knew you could do these simple riddles i made for you.');
+        if (currentRiddle < riddles.length) {
+          askRiddle();
+        } else {
+          typeText('\n>> good job my love, i knew you could do these simple riddles i made for you.');
+        }
       } else {
         typeText('\n>> INCORRECT.\n>> ');
         waitAnswer();
       }
-    } else if (e.key === 'Backspace') {
-      e.preventDefault();
-      ans = ans.slice(0, -1);
-      terminalOutput.textContent = terminalOutput.textContent.slice(0, -1);
-    } else if (e.key.length === 1) {
-      ans += e.key;
-      terminalOutput.textContent += e.key.toUpperCase();
+    } else {
+      buffer = val.toUpperCase();
+      updateTerminalInput(buffer);
     }
-  });
+  };
+  mobileInput.addEventListener('input', handler);
 }
+
+function updateTerminalInput(str) {
+  removeCursor();
+  const lines = terminalOutput.innerText.split('\n');
+  lines[lines.length - 1] = `>> ${str}`;
+  terminalOutput.innerText = lines.join('\n');
+  terminalOutput.appendChild(createCursor());
+  terminalOutput.scrollTop = terminalOutput.scrollHeight;
+}
+
 function handleInitialResponse() {
   askRiddle();
 }
@@ -150,30 +172,31 @@ async function activateChat() {
   chatInputActive = true;
 
   let buf = '';
+  mobileInput.value = '';
+  focusInput();
 
   dbRef.off();
   dbRef.on('child_added', snap => {
     const msgLine = document.createElement('div');
-    msgLine.textContent = >> ${snap.val()};
+    msgLine.textContent = `>> ${snap.val()}`;
     msgLine.style.marginTop = '10px';
     terminalOutput.insertBefore(msgLine, line);
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 
-  window.addEventListener('keydown', function inputHandler(e) {
+  mobileInput.addEventListener('input', function inputHandler(e) {
     if (!chatInputActive) return;
-    if (e.key === 'Enter') {
+
+    let val = e.target.value;
+    if (val.endsWith('\n') || val.endsWith('\r')) {
       if (buf.trim()) {
         dbRef.push(buf.trim());
       }
       buf = '';
       live.textContent = '';
-    } else if (e.key === 'Backspace') {
-      e.preventDefault();
-      buf = buf.slice(0, -1);
-      live.textContent = buf;
-    } else if (e.key.length === 1) {
-      buf += e.key;
+      mobileInput.value = '';
+    } else {
+      buf = val;
       live.textContent = buf;
     }
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
@@ -181,4 +204,8 @@ async function activateChat() {
 }
 
 // Initialize
-logo.addEventListener('click', startTerminal);
+logo.addEventListener('click', () => {
+  startTerminal();
+  focusInput();
+});
+document.body.addEventListener('click', focusInput);
