@@ -6,7 +6,7 @@ const logo           = document.getElementById('logo');
 const mobileInput    = document.getElementById('mobile-input');
 
 const cursorSymbol = '<?>';
-const triggerCode  = 'laylalynngardner';
+const triggerCode  = 'ava';
 
 // Firebase DB
 const dbRef = firebase.database().ref('chatLogs');
