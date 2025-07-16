@@ -1,4 +1,5 @@
-// Grab elements
+// === MOBILE-COMPATIBLE SCRIPT ===
+
 const homeScreen     = document.getElementById('home-screen');
 const terminalScreen = document.getElementById('terminal-screen');
 const terminalOutput = document.getElementById('terminal-output');
@@ -11,7 +12,6 @@ const triggerCode  = 'ava';
 // Firebase DB
 const dbRef = firebase.database().ref('chatLogs');
 
-// Riddles & flow
 const welcomeMessages = [
   "WELCOME. I WAS EXPECTING YOU.\n>> HAVEN'T A CLUE? \n>> LET'S PLAY A GAME JUST ME AND YOU... \n>> [Y/N]"
 ];
@@ -27,7 +27,6 @@ const riddles = [
 let currentRiddle = 0;
 let chatInputActive = false;
 
-// Utils
 function sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
@@ -54,92 +53,77 @@ async function typeText(txt, speed = 90) {
 function clearTerminal() {
   terminalOutput.innerHTML = '';
 }
-function focusInput() {
-  mobileInput.focus();
-}
 
-// Terminal start
 async function startTerminal() {
   homeScreen.classList.add('hidden');
   terminalScreen.classList.remove('hidden');
   clearTerminal();
   await typeText(welcomeMessages[0]);
+  focusMobileInput();
   waitYesNo(handleInitialResponse);
 }
+
+function focusMobileInput() {
+  mobileInput.value = '';
+  mobileInput.focus();
+  mobileInput.setSelectionRange(mobileInput.value.length, mobileInput.value.length);
+}
+
 function waitYesNo(cb) {
-  focusInput();
-  let listener = function(e) {
-    const val = e.target.value.trim().toUpperCase();
-    if (val === 'Y' || val === 'N') {
-      mobileInput.removeEventListener('input', listener);
+  mobileInput.oninput = () => {
+    const k = mobileInput.value.trim().toUpperCase();
+    if (k === 'Y' || k === 'N') {
       mobileInput.value = '';
       removeCursor();
-      terminalOutput.textContent += `\n>>${val}\n`;
-      if (val === 'Y') cb();
+      terminalOutput.textContent += `\n>>${k}\n`;
+      if (k === 'Y') cb();
       else typeText('>> GOODBYE.');
     }
   };
-  mobileInput.addEventListener('input', listener);
 }
+
 async function askRiddle() {
   const r = riddles[currentRiddle];
   await typeText(`\n${r.text}\n>> `);
+  focusMobileInput();
   waitAnswer();
 }
-function waitAnswer() {
-  focusInput();
-  let buffer = '';
-  mobileInput.value = '';
-  const handler = function(e) {
-    const val = e.target.value;
-    if (val.endsWith('\n') || val.endsWith('\r')) {
-      mobileInput.removeEventListener('input', handler);
-      const clean = val.trim().toLowerCase();
-      removeCursor();
 
-      if (clean.includes(triggerCode)) {
+function waitAnswer() {
+  mobileInput.value = '';
+  focusMobileInput();
+  mobileInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      removeCursor();
+      const ans = mobileInput.value.trim();
+      mobileInput.value = '';
+      const norm = ans.replace(/\s+/g, '').toLowerCase();
+      if (norm.includes(triggerCode)) {
         activateChat();
         return;
       }
-
       const expected = riddles[currentRiddle].answer;
       const isCorrect = Array.isArray(expected)
-        ? expected.some(a => clean.includes(a))
-        : clean.includes(expected.toLowerCase());
-
+        ? expected.some(a => ans.toLowerCase().includes(a))
+        : ans.toLowerCase().includes(expected.toLowerCase());
+      terminalOutput.textContent += `\n>>${ans}\n`;
       if (isCorrect) {
         currentRiddle++;
-        if (currentRiddle < riddles.length) {
-          askRiddle();
-        } else {
-          typeText('\n>> good job my love, i knew you could do these simple riddles i made for you.');
-        }
+        if (currentRiddle < riddles.length) askRiddle();
+        else typeText('\n>> good job my love, i knew you could do these simple riddles i made for you.');
       } else {
         typeText('\n>> INCORRECT.\n>> ');
         waitAnswer();
       }
-    } else {
-      buffer = val.toUpperCase();
-      updateTerminalInput(buffer);
     }
   };
-  mobileInput.addEventListener('input', handler);
-}
-
-function updateTerminalInput(str) {
-  removeCursor();
-  const lines = terminalOutput.innerText.split('\n');
-  lines[lines.length - 1] = `>> ${str}`;
-  terminalOutput.innerText = lines.join('\n');
-  terminalOutput.appendChild(createCursor());
-  terminalOutput.scrollTop = terminalOutput.scrollHeight;
 }
 
 function handleInitialResponse() {
   askRiddle();
 }
 
-// ACTIVATE CHAT MODE
 async function activateChat() {
   clearTerminal();
   await typeText('ACCESS GRANTED', 50);
@@ -172,8 +156,6 @@ async function activateChat() {
   chatInputActive = true;
 
   let buf = '';
-  mobileInput.value = '';
-  focusInput();
 
   dbRef.off();
   dbRef.on('child_added', snap => {
@@ -184,28 +166,27 @@ async function activateChat() {
     terminalOutput.scrollTop = terminalOutput.scrollHeight;
   });
 
-  mobileInput.addEventListener('input', function inputHandler(e) {
-    if (!chatInputActive) return;
+  mobileInput.value = '';
+  focusMobileInput();
+  mobileInput.oninput = () => {
+    buf = mobileInput.value;
+    live.textContent = buf;
+  };
 
-    let val = e.target.value;
-    if (val.endsWith('\n') || val.endsWith('\r')) {
+  mobileInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
       if (buf.trim()) {
         dbRef.push(buf.trim());
       }
       buf = '';
-      live.textContent = '';
       mobileInput.value = '';
-    } else {
-      buf = val;
-      live.textContent = buf;
+      live.textContent = '';
     }
-    terminalOutput.scrollTop = terminalOutput.scrollHeight;
-  });
+  };
 }
 
-// Initialize
+// Init
 logo.addEventListener('click', () => {
+  focusMobileInput();
   startTerminal();
-  focusInput();
 });
-document.body.addEventListener('click', focusInput);
