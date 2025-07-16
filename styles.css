@@ -56,6 +56,7 @@ html, body {
   z-index: 5;
 }
 
+/* Terminal output area */
 #terminal-output {
   font-family: 'Source Code Pro', monospace;
   font-size: 14px;
@@ -63,10 +64,18 @@ html, body {
   white-space: pre-wrap;
   overflow-y: auto;
   height: 100%;
+  word-break: break-word;
+  padding-bottom: 30px;
 }
 
 /* Terminal cursor (<?>) blink */
 .cursor {
+  display: inline-block;
+  animation: blink 1s steps(1) infinite;
+}
+
+/* Input cursor (|) blink */
+.user-cursor {
   display: inline-block;
   animation: blink 1s steps(1) infinite;
 }
@@ -76,8 +85,21 @@ html, body {
   50%, 100% { opacity: 0; }
 }
 
-/* User input cursor (|) blink */
-.user-cursor {
-  display: inline-block;
-  animation: blink 1s steps(1) infinite;
+/* Hidden mobile input to trigger keyboard */
+#mobile-input {
+  position: absolute;
+  opacity: 0;
+  height: 0;
+  width: 0;
+  z-index: -1;
+  font-size: 16px; /* iOS keyboard won't show without it */
+}
+
+/* Chat line style (for chat logs) */
+.chat-line {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+  word-break: break-word;
 }
